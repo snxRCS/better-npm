@@ -1,0 +1,48 @@
+## Better NPM – with LLDAP (SQLite)
+## Start: docker compose -f docker-compose.lldap.yml up -d
+##
+## NPM Admin UI:   http://localhost:81    (admin@example.com / changeme)
+## LLDAP Admin UI: http://localhost:17170 (admin / admin_password)
+##
+## After starting, configure LDAP in NPM > Settings > LDAP Authentication:
+##   Auth Mode:       Internal + LDAP (or LDAP Only)
+##   Host:            lldap
+##   Port:            3890
+##   Bind DN:         uid=admin,ou=people,dc=example,dc=com
+##   Bind Password:   admin_password
+##   Base DN:         ou=people,dc=example,dc=com
+##   Search Filter:   (|(uid={{USERNAME}})(mail={{USERNAME}}))
+##   Email Attribute: mail
+##   Name Attribute:  displayName
+##   Group Attribute: memberOf
+
+services:
+  app:
+    image: "ghcr.io/snxrcs/better-npm:latest"
+    restart: unless-stopped
+    ports:
+      - "80:80"     # Public HTTP Port
+      - "443:443"   # Public HTTPS Port
+      - "81:81"     # Admin Web Port
+    environment:
+      TZ: "Europe/Berlin"
+      # Uncomment this if IPv6 is not enabled on your host
+      # DISABLE_IPV6: "true"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      - lldap
+
+  lldap:
+    image: "lldap/lldap:latest"
+    restart: unless-stopped
+    ports:
+      - "3890:3890"     # LDAP port
+      - "17170:17170"   # Web UI port
+    environment:
+      LLDAP_JWT_SECRET: "super-secret-change-me-in-production"
+      LLDAP_LDAP_USER_PASS: "admin_password"
+      LLDAP_LDAP_BASE_DN: "dc=example,dc=com"
+    volumes:
+      - ./lldap_data:/data

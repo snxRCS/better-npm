@@ -1,0 +1,194 @@
+name: Docker Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: snxrcs/better-npm
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─── Read current version ───────────────────────────
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      tag_exists: ${{ steps.ver.outputs.tag_exists }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(cat .version)
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          git fetch --tags
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Version: ${VERSION}, Tag exists: $(git rev-parse --verify ${TAG} 2>/dev/null && echo yes || echo no)"
+
+  # ─── Build frontend ─────────────────────────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Compile locales
+        working-directory: frontend
+        run: yarn locale-compile
+
+      - name: Build
+        working-directory: frontend
+        run: yarn build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 1
+
+  # ─── Build & push Docker image ──────────────────────
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [prepare, build-frontend]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.version }}
+          build-args: |
+            BUILD_VERSION=${{ needs.prepare.outputs.version }}
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── Create GitHub Release ──────────────────────────
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare, docker]
+    if: needs.prepare.outputs.tag_exists == 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          {
+            echo "## Better NPM ${{ needs.prepare.outputs.tag }}"
+            echo ""
+            if [ -z "$PREV_TAG" ]; then
+              git log --oneline --no-merges | head -20 | while read -r line; do echo "- ${line}"; done
+            else
+              git log --oneline --no-merges "${PREV_TAG}..HEAD" | while read -r line; do echo "- ${line}"; done
+            fi
+            echo ""
+            echo "**Docker:** \`docker pull ghcr.io/snxrcs/better-npm:${{ needs.prepare.outputs.version }}\`"
+          } > /tmp/notes.md
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git config user.name "Tobias Krug"
+          git config user.email "tobi@snxrcs.me"
+          git tag "${{ needs.prepare.outputs.tag }}"
+          git push origin "${{ needs.prepare.outputs.tag }}"
+          gh release create "${{ needs.prepare.outputs.tag }}" \
+            --title "${{ needs.prepare.outputs.tag }}" \
+            --notes-file /tmp/notes.md
+
+  # ─── Auto-bump version for next release ─────────────
+  bump-version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    needs: [prepare, release]
+    if: needs.release.result == 'success'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.PAT }}
+
+      - name: Pull latest
+        run: git pull origin main
+
+      - name: Bump patch version
+        run: |
+          CURRENT=$(cat .version)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          if [ "$PATCH" -gt 99 ]; then PATCH=0; MINOR=$((MINOR + 1)); fi
+          if [ "$MINOR" -gt 9 ]; then MINOR=0; MAJOR=$((MAJOR + 1)); fi
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+
+          echo "$NEW" > .version
+          sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW}\"/" backend/package.json
+          sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW}\"/" frontend/package.json
+
+          git config user.name "Tobias Krug"
+          git config user.email "tobi@snxrcs.me"
+          git add .version backend/package.json frontend/package.json
+          git commit -m "chore: bump version to ${NEW} [skip ci]"
+          git push origin main
+          echo "Bumped: ${CURRENT} → ${NEW}"
