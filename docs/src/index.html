@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Better NPM — Documentation</title>
+  <meta name="description" content="A modern Nginx proxy manager with LDAP, SSO, and 2FA">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4/lib/themes/dark.css">
+  <style>
+    :root {
+      --base-font-size: 15px;
+      --sidebar-width: 260px;
+      --theme-color: #60a5fa;
+    }
+
+    /* Sidebar immer sichtbar auf Desktop */
+    body { overflow: auto; }
+    .sidebar { overflow-y: auto; position: fixed; border-right: 1px solid rgba(255,255,255,0.08); }
+    .content { padding-left: 260px; }
+    .sidebar-toggle { display: none; }
+    @media (max-width: 768px) {
+      .sidebar-toggle { display: block; }
+      .content { padding-left: 0; }
+    }
+
+    /* App name in sidebar */
+    .sidebar .app-name { text-align: center; padding: 16px 0 8px; }
+    .sidebar .app-name img { width: 56px; margin-bottom: 6px; display: block; margin-left: auto; margin-right: auto; }
+    .sidebar .app-name a { font-weight: 700; font-size: 1.1em; }
+
+    /* Hide duplicate h1 */
+    .markdown-section h1:first-child { display: none; }
+
+    /* Language selector in sidebar */
+    .lang-selector {
+      text-align: center;
+      padding: 10px 0 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 10px;
+    }
+    .lang-selector a {
+      display: inline-block;
+      padding: 5px 14px;
+      margin: 0 4px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #aaa;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: all 0.2s;
+    }
+    .lang-selector a:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+    .lang-selector a.active {
+      background: var(--theme-color);
+      color: #fff;
+      border-color: var(--theme-color);
+    }
+
+    /* Nicer tables */
+    .markdown-section table { border-collapse: collapse; width: 100%; }
+    .markdown-section th, .markdown-section td { border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; }
+
+    /* Code blocks */
+    .markdown-section code { border-radius: 4px; }
+    .markdown-section pre { border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: '<img src="logo.svg" alt="Logo"><br>Better NPM',
+      repo: false,
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      coverpage: false,
+      search: {
+        placeholder: 'Search / Suche...',
+        noData: 'No results / Keine Ergebnisse.',
+        paths: 'auto'
+      },
+      basePath: '/better-npm/',
+      plugins: [
+        function(hook) {
+          hook.doneEach(function() {
+            var sidebar = document.querySelector('.sidebar-nav');
+            if (sidebar && !sidebar.querySelector('.lang-selector')) {
+              var hash = location.hash || '';
+              var isDE = hash.indexOf('#/de/') === 0;
+              var sel = document.createElement('div');
+              sel.className = 'lang-selector';
+              sel.innerHTML =
+                '<a href="#/en/" class="' + (!isDE ? 'active' : '') + '">EN</a>' +
+                '<a href="#/de/" class="' + (isDE ? 'active' : '') + '">DE</a>';
+              sidebar.insertBefore(sel, sidebar.firstChild);
+            }
+          });
+        }
+      ]
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-docker.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-nginx.min.js"></script>
+</body>
+</html>
