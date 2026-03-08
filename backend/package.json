@@ -1,6 +1,6 @@
 {
 	"name": "better-npm",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"description": "A beautiful interface for managing Nginx proxy hosts with LDAP, SSO and 2FA authentication",
 	"author": "better-npm contributors",
 	"license": "MIT",
