@@ -36,7 +36,7 @@ const up = (knex) => {
 				table.string("email").notNull();
 				table.string("name").notNull();
 				table.string("nickname").notNull();
-				table.string("avatar").notNull();
+				table.text("avatar").notNull();
 				table.json("roles").notNull();
 			});
 		})
