@@ -16,6 +16,8 @@ import tokensRoutes from "./tokens.js";
 import usersRoutes from "./users.js";
 import ldapRoutes from "./ldap.js";
 import versionRoutes from "./version.js";
+import statsRoutes from "./stats.js";
+import dockerRoutes from "./docker.js";
 
 const router = express.Router({
 	caseSensitive: true,
@@ -56,6 +58,8 @@ router.use("/nginx/dead-hosts", deadHostsRoutes);
 router.use("/nginx/streams", streamsRoutes);
 router.use("/nginx/access-lists", accessListsRoutes);
 router.use("/nginx/certificates", certificatesHostsRoutes);
+router.use("/stats", statsRoutes);
+router.use("/docker", dockerRoutes);
 
 /**
  * API 404 for all other routes

@@ -1,4 +1,5 @@
 import { IconArrowsCross, IconBolt, IconBoltOff, IconChevronRight, IconDisc } from "@tabler/icons-react";
+import { LiveStats } from "./LiveStats";
 import { useNavigate } from "react-router-dom";
 import { HasPermission } from "src/components";
 import { useHostReport } from "src/hooks";
@@ -110,6 +111,7 @@ const Dashboard = () => {
 					</div>
 				</HasPermission>
 			</div>
+			<LiveStats />
 		</div>
 	);
 };
