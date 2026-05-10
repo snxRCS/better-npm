@@ -1,5 +1,6 @@
 import {
 	IconBook,
+	IconBrandDocker,
 	IconChevronDown,
 	IconDeviceDesktop,
 	IconHome,
@@ -40,6 +41,11 @@ const menuItems: MenuItem[] = [
 		to: "/",
 		icon: IconHome,
 		label: "dashboard",
+	},
+	{
+		to: "/docker",
+		icon: IconBrandDocker,
+		label: "docker",
 	},
 	{
 		icon: IconDeviceDesktop,
