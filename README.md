@@ -155,3 +155,5 @@ Fork of [Nginx Proxy Manager](https://github.com/NginxProxyManager/nginx-proxy-m
 ## License
 
 MIT — Same as the original project.
+
+<!-- Updated 2026-05-13 -->
