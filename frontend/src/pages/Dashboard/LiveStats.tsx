@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { IconActivity, IconAlertCircle, IconCheck, IconX } from "@tabler/icons-react";
+import { IconActivity } from "@tabler/icons-react";
 import AuthStore from "src/modules/AuthStore";
 
 interface StatsData {
