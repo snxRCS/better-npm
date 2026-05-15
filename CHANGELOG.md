@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.0.4 — 2026-05-15
+
+### Security
+
+- Custom base image with OpenResty compiled against nginx 1.31.0 (fixes CVE-2026-42945)
+
+---
+
 ## v3.0.3 — 2026-05-15
 
 ### Security
