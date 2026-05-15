@@ -4,7 +4,7 @@
 # This file assumes that the frontend has been built using ./scripts/frontend-build
 
 FROM nginxproxymanager/testca AS testca
-FROM nginxproxymanager/nginx-full:certbot-node
+FROM ghcr.io/snxrcs/better-npm-base:latest
 
 ARG TARGETPLATFORM
 ARG BUILD_VERSION

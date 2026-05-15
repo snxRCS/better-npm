@@ -1,5 +1,5 @@
 FROM nginxproxymanager/testca AS testca
-FROM nginxproxymanager/nginx-full:certbot-node
+FROM ghcr.io/snxrcs/better-npm-base:latest
 LABEL maintainer="Jamie Curnow <jc@jc21.com>"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
