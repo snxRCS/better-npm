@@ -1,23 +1,25 @@
 # Custom base image for better-npm
-# Builds OpenResty with nginx 1.31.0 to address CVE-2026-42945
-# (heap buffer overflow in nginx < 1.31.0, fixed in 1.31.0)
-#
-# Replaces: nginxproxymanager/nginx-full:certbot-node
+# Builds nginx 1.31.0 directly with lua-nginx-module (bypassing OpenResty's patcher)
+# Fixes CVE-2026-42945 (heap buffer overflow in nginx < 1.31.0)
 
 FROM debian:bookworm-slim
 
 ARG TARGETPLATFORM=linux/amd64
 
 ENV NGINX_VERSION=1.31.0 \
-    OPENRESTY_VERSION=1.27.1.2 \
+    NDK_VERSION=0.3.3 \
+    LUA_NGINX_VERSION=0.10.27 \
+    LUA_RESTY_CORE_VERSION=0.1.29 \
+    LUA_RESTY_LRUCACHE_VERSION=0.13 \
     NODE_MAJOR=20
 
-# ─── Build dependencies ────────────────────────────────────────────────────────
+# Build + runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     curl \
     wget \
+    git \
     libpcre3-dev \
     libssl-dev \
     zlib1g-dev \
@@ -25,47 +27,62 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgeoip-dev \
     libxml2-dev \
     libxslt1-dev \
-    libmaxminddb-dev \
+    libperl-dev \
     perl \
-    git \
     gnupg2 \
     lsb-release \
-    # Runtime deps
+    python3 \
+    python3-venv \
+    python3-full \
+    apache2-utils \
+    cron \
+    logrotate \
+    jq \
+    openssl \
     libpcre3 \
     libssl3 \
     zlib1g \
     libgeoip1 \
     libxml2 \
     libxslt1.1 \
-    # Certbot and tooling
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-full \
-    # General utilities expected by NPM
-    apache2-utils \
-    cron \
-    logrotate \
-    jq \
-    openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# ─── Download & build OpenResty with nginx 1.31.0 ─────────────────────────────
-# OpenResty bundles LuaJIT in its tarball — no separate download needed
-RUN cd /tmp && \
-    wget -q "https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz" && \
-    wget -q "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" && \
-    tar xf "openresty-${OPENRESTY_VERSION}.tar.gz" && \
-    tar xf "nginx-${NGINX_VERSION}.tar.gz" && \
-    cd "openresty-${OPENRESTY_VERSION}" && \
-    # Replace OpenResty's bundled nginx with nginx 1.31.0, keeping the original
-    # directory name so OpenResty's configure script finds the sources correctly
-    BUNDLED_DIR=$(ls bundle/ | grep '^nginx-' | head -1) && \
-    rm -rf "bundle/${BUNDLED_DIR}" && \
-    mv "/tmp/nginx-${NGINX_VERSION}" "bundle/${BUNDLED_DIR}" && \
-    ./configure \
-        --prefix=/usr/local/openresty \
-        --with-luajit \
+# Build LuaJIT from GitHub (luajit.org is unreachable)
+RUN git clone --depth=1 --branch v2.1 https://github.com/LuaJIT/LuaJIT.git /tmp/luajit \
+    && cd /tmp/luajit \
+    && make -j"$(nproc)" \
+    && make install PREFIX=/usr/local/luajit \
+    && ldconfig \
+    && rm -rf /tmp/luajit
+
+ENV LUAJIT_LIB=/usr/local/luajit/lib \
+    LUAJIT_INC=/usr/local/luajit/include/luajit-2.1
+
+# Download nginx + Lua modules
+RUN cd /tmp \
+    && wget -q "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" \
+    && wget -q "https://github.com/simplresty/ngx_devel_kit/archive/refs/tags/v${NDK_VERSION}.tar.gz" -O ndk.tar.gz \
+    && wget -q "https://github.com/openresty/lua-nginx-module/archive/refs/tags/v${LUA_NGINX_VERSION}.tar.gz" -O lua-nginx.tar.gz \
+    && tar xf "nginx-${NGINX_VERSION}.tar.gz" \
+    && tar xf ndk.tar.gz \
+    && tar xf lua-nginx.tar.gz
+
+# Build nginx 1.31.0 with Lua support
+RUN cd /tmp/nginx-${NGINX_VERSION} \
+    && ./configure \
+        --prefix=/usr/local/nginx \
+        --sbin-path=/usr/sbin/nginx \
+        --modules-path=/usr/lib/nginx/modules \
+        --conf-path=/etc/nginx/nginx.conf \
+        --error-log-path=/var/log/nginx/error.log \
+        --http-log-path=/var/log/nginx/access.log \
+        --pid-path=/run/nginx/nginx.pid \
+        --lock-path=/var/lock/nginx.lock \
+        --http-client-body-temp-path=/tmp/nginx/body \
+        --http-fastcgi-temp-path=/tmp/nginx/fastcgi \
+        --http-proxy-temp-path=/tmp/nginx/proxy \
+        --http-scgi-temp-path=/tmp/nginx/scgi \
+        --http-uwsgi-temp-path=/tmp/nginx/uwsgi \
         --with-http_ssl_module \
         --with-http_v2_module \
         --with-http_realip_module \
@@ -84,38 +101,47 @@ RUN cd /tmp && \
         --with-http_secure_link_module \
         --with-http_slice_module \
         --with-http_stub_status_module \
-        --with-http_perl_module=dynamic \
         --with-mail=dynamic \
         --with-mail_ssl_module \
         --with-stream \
         --with-stream_ssl_module \
         --with-stream_realip_module \
-        --with-stream_geoip_module=dynamic \
         --with-stream_ssl_preread_module \
         --with-compat \
         --with-pcre-jit \
         --with-threads \
         --with-file-aio \
-        -j"$(nproc)" && \
-    make -j"$(nproc)" && \
-    make install && \
-    # Create nginx symlinks matching the paths NPM expects
-    ln -sf /usr/local/openresty/nginx/sbin/nginx /usr/sbin/nginx && \
-    ln -sf /usr/local/openresty/nginx/conf /etc/nginx && \
-    mkdir -p /etc/nginx/conf.d /etc/nginx/modules && \
-    # Modules symlink so NPM's nginx.conf include works
-    ln -sf /usr/local/openresty/nginx/modules /etc/nginx/modules-available && \
-    rm -rf /tmp/openresty* /tmp/nginx*
+        --add-module=/tmp/ngx_devel_kit-${NDK_VERSION} \
+        --add-module=/tmp/lua-nginx-module-${LUA_NGINX_VERSION} \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/nginx-${NGINX_VERSION} /tmp/ngx_devel_kit-* /tmp/lua-nginx-module-* /tmp/*.tar.gz
 
-# ─── Nginx directory structure expected by NPM ────────────────────────────────
+# Install lua-resty-core + lua-resty-lrucache
+RUN cd /tmp \
+    && wget -q "https://github.com/openresty/lua-resty-core/archive/refs/tags/v${LUA_RESTY_CORE_VERSION}.tar.gz" -O lrc.tar.gz \
+    && wget -q "https://github.com/openresty/lua-resty-lrucache/archive/refs/tags/v${LUA_RESTY_LRUCACHE_VERSION}.tar.gz" -O lrl.tar.gz \
+    && tar xf lrc.tar.gz \
+    && tar xf lrl.tar.gz \
+    && cd lua-resty-core-${LUA_RESTY_CORE_VERSION} \
+    && make install PREFIX=/usr/local/nginx \
+    && cd /tmp/lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION} \
+    && make install PREFIX=/usr/local/nginx \
+    && rm -rf /tmp/lrc.tar.gz /tmp/lrl.tar.gz /tmp/lua-resty-*
+
+# Directory structure expected by NPM
 RUN mkdir -p \
+    /tmp/nginx/body \
+    /tmp/nginx/fastcgi \
+    /tmp/nginx/proxy \
+    /tmp/nginx/scgi \
+    /tmp/nginx/uwsgi \
+    /run/nginx \
     /etc/nginx/conf.d/include \
     /etc/nginx/conf.d/stream \
     /var/lib/nginx/cache/public \
     /var/lib/nginx/cache/private \
     /var/log/nginx \
-    /run/nginx \
-    /tmp/nginx/body \
     /data/nginx/default_host \
     /data/nginx/proxy_host \
     /data/nginx/redirection_host \
@@ -126,14 +152,18 @@ RUN mkdir -p \
     /data/logs \
     /data/ssl-confs
 
-# ─── npm user (matches what NPM expects: uid/gid 1000) ────────────────────────
-RUN groupadd -g 1000 npm && \
-    useradd -u 1000 -g 1000 -s /bin/false -d /var/www/html -M npm
+# Symlinks NPM expects
+RUN ln -sf /usr/lib/nginx/modules /etc/nginx/modules \
+    && mkdir -p /etc/nginx/modules-enabled
 
-# ─── certbot via pipx/venv (system pip restricted in bookworm) ─────────────────
-RUN python3 -m venv /opt/certbot && \
-    /opt/certbot/bin/pip install --upgrade pip && \
-    /opt/certbot/bin/pip install \
+# npm user (uid/gid 1000)
+RUN groupadd -g 1000 npm \
+    && useradd -u 1000 -g 1000 -s /bin/false -d /var/www/html -M npm
+
+# certbot via venv
+RUN python3 -m venv /opt/certbot \
+    && /opt/certbot/bin/pip install --upgrade pip \
+    && /opt/certbot/bin/pip install \
         certbot \
         certbot-dns-cloudflare \
         certbot-dns-route53 \
@@ -146,26 +176,22 @@ RUN python3 -m venv /opt/certbot && \
         certbot-dns-nsone \
         certbot-dns-ovh \
         certbot-dns-rfc2136 \
-        certbot-dns-sakuracloud && \
-    ln -sf /opt/certbot/bin/certbot /usr/bin/certbot
+        certbot-dns-sakuracloud \
+    && ln -sf /opt/certbot/bin/certbot /usr/bin/certbot
 
-# ─── Node.js 20.x via NodeSource ──────────────────────────────────────────────
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    npm install -g yarn && \
-    rm -rf /var/lib/apt/lists/*
+# Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g yarn \
+    && rm -rf /var/lib/apt/lists/*
 
-# ─── OpenResty Lua path environment ───────────────────────────────────────────
-ENV PATH=/usr/local/openresty/bin:/usr/local/openresty/nginx/sbin:$PATH \
-    LUA_PATH="/usr/local/openresty/site/lualib/?.lua;/usr/local/openresty/lualib/?.lua;;" \
-    LUA_CPATH="/usr/local/openresty/site/lualib/?.so;/usr/local/openresty/lualib/?.so;;"
+ENV PATH=/usr/sbin:$PATH \
+    LUA_PATH="/usr/local/nginx/lualib/?.lua;/usr/local/nginx/lualib/?/init.lua;;" \
+    LUA_CPATH="/usr/local/nginx/lualib/?.so;;"
 
-# ─── Validate nginx binary ─────────────────────────────────────────────────────
-RUN nginx -V 2>&1 | grep -q "nginx/${NGINX_VERSION}" || \
-    (echo "ERROR: nginx version mismatch! Expected ${NGINX_VERSION}" && nginx -V && exit 1)
+# Validate nginx binary version
+RUN nginx -V 2>&1 | grep "nginx/${NGINX_VERSION}" \
+    && echo "==> nginx ${NGINX_VERSION} OK, CVE-2026-42945 patched"
 
-LABEL org.label-schema.schema-version="1.0" \
-    org.label-schema.name="better-npm-base" \
-    org.label-schema.description="Custom base image: OpenResty with nginx ${NGINX_VERSION} (CVE-2026-42945 fix)" \
-    org.label-schema.url="https://github.com/snxRCS/better-npm" \
-    org.opencontainers.image.source="https://github.com/snxRCS/better-npm"
+LABEL org.opencontainers.image.source="https://github.com/snxRCS/better-npm" \
+      org.label-schema.description="better-npm base: nginx ${NGINX_VERSION} + Lua (CVE-2026-42945 fix)"
