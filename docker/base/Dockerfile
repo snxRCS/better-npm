@@ -10,7 +10,6 @@ ARG TARGETPLATFORM=linux/amd64
 
 ENV NGINX_VERSION=1.31.0 \
     OPENRESTY_VERSION=1.27.1.2 \
-    LUAJIT_VERSION=2.1.0-beta3 \
     NODE_MAJOR=20
 
 # ─── Build dependencies ────────────────────────────────────────────────────────
@@ -51,20 +50,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# ─── Build LuaJIT (required by OpenResty) ─────────────────────────────────────
-RUN cd /tmp && \
-    wget -q "https://luajit.org/download/LuaJIT-${LUAJIT_VERSION}.tar.gz" && \
-    tar xf "LuaJIT-${LUAJIT_VERSION}.tar.gz" && \
-    cd "LuaJIT-${LUAJIT_VERSION}" && \
-    make -j"$(nproc)" && \
-    make install && \
-    ln -sf luajit-2.1.0-beta3 /usr/local/bin/luajit && \
-    rm -rf /tmp/LuaJIT*
-
-ENV LUAJIT_LIB=/usr/local/lib \
-    LUAJIT_INC=/usr/local/include/luajit-2.1
-
 # ─── Download & build OpenResty with nginx 1.31.0 ─────────────────────────────
+# OpenResty bundles LuaJIT in its tarball — no separate download needed
 RUN cd /tmp && \
     wget -q "https://openresty.org/download/openresty-${OPENRESTY_VERSION}.tar.gz" && \
     wget -q "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" && \
