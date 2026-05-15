@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.0.3 — 2026-05-15
+
+### Security
+
+- **CVE-2026-42945** — Patched critical heap buffer overflow in NGINX `ngx_http_rewrite_module`. Upgraded nginx to 1.31.0 in both production and dev Dockerfiles. Vulnerable versions (< 1.31.0) could allow unauthenticated attackers to crash the worker process or achieve RCE on systems without ASLR.
+
+---
+
 ## v3.0.0 — Better NPM
 
 Major rewrite of the LDAP Edition into **Better NPM** with new features, branding, and UI.
