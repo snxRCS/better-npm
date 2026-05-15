@@ -24,17 +24,6 @@ ENV SUPPRESS_NO_CONFIG_WARNING=1 \
 	NPM_BUILD_DATE="${BUILD_DATE}" \
 	NODE_OPTIONS="--openssl-legacy-provider"
 
-# CVE-2026-42945: upgrade nginx to 1.31.0 (heap buffer overflow in ngx_http_rewrite_module)
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends gnupg curl \
-	&& curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg \
-	&& . /etc/os-release \
-	&& echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/mainline/debian ${VERSION_CODENAME} nginx" > /etc/apt/sources.list.d/nginx.list \
-	&& apt-get update \
-	&& apt-get install -y --allow-downgrades nginx=1.31.0-1~${VERSION_CODENAME} \
-	&& apt-mark hold nginx \
-	&& rm -rf /var/lib/apt/lists/*
-
 RUN echo "fs.file-max = 65535" > /etc/sysctl.conf \
 	&& apt-get update \
 	&& apt-get install -y --no-install-recommends jq logrotate \
