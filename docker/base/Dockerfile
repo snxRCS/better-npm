@@ -58,15 +58,16 @@ RUN cd /tmp && \
     tar xf "openresty-${OPENRESTY_VERSION}.tar.gz" && \
     tar xf "nginx-${NGINX_VERSION}.tar.gz" && \
     cd "openresty-${OPENRESTY_VERSION}" && \
-    # Replace OpenResty's bundled nginx with nginx 1.31.0
-    rm -rf bundle/nginx-* && \
-    cp -r "/tmp/nginx-${NGINX_VERSION}" "bundle/nginx-${NGINX_VERSION}" && \
+    # Replace OpenResty's bundled nginx with nginx 1.31.0, keeping the original
+    # directory name so OpenResty's configure script finds the sources correctly
+    BUNDLED_DIR=$(ls bundle/ | grep '^nginx-' | head -1) && \
+    rm -rf "bundle/${BUNDLED_DIR}" && \
+    mv "/tmp/nginx-${NGINX_VERSION}" "bundle/${BUNDLED_DIR}" && \
     ./configure \
         --prefix=/usr/local/openresty \
         --with-luajit \
         --with-http_ssl_module \
         --with-http_v2_module \
-        --with-http_v3_module \
         --with-http_realip_module \
         --with-http_addition_module \
         --with-http_xslt_module=dynamic \
@@ -81,7 +82,6 @@ RUN cd /tmp && \
         --with-http_auth_request_module \
         --with-http_random_index_module \
         --with-http_secure_link_module \
-        --with-http_degradation_module \
         --with-http_slice_module \
         --with-http_stub_status_module \
         --with-http_perl_module=dynamic \
