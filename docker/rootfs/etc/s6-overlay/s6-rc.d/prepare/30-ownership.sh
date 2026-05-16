@@ -26,6 +26,11 @@ chownit() {
 	local dir="$1"
 	local recursive="${2:-true}"
 
+	if [ ! -e "$dir" ]; then
+		echo "- $dir ... MISSING (skip)"
+		return 0
+	fi
+
 	local have
 	have="$(stat -c '%u:%g' "$dir")"
 	echo "- $dir ... "
