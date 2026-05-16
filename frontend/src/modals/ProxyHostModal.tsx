@@ -1,4 +1,11 @@
-import { IconSettings } from "@tabler/icons-react";
+import {
+	IconBrandDocker,
+	IconCode,
+	IconLock,
+	IconMapPin,
+	IconServer,
+	IconSettings,
+} from "@tabler/icons-react";
 import cn from "classnames";
 import EasyModal, { type InnerModalProps } from "ez-modal-react";
 import { Field, Form, Formik } from "formik";
@@ -60,8 +67,12 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 		});
 	};
 
+	const modalTitle = id === "new"
+		? intl.formatMessage({ id: "object.add" }, { object: "proxy-host" })
+		: (data?.domainNames?.[0] || intl.formatMessage({ id: "object.edit" }, { object: "proxy-host" }));
+
 	return (
-		<Modal show={visible} onHide={remove}>
+		<Modal show={visible} onHide={remove} size="lg">
 			{!isLoading && (error || userError) && (
 				<Alert variant="danger" className="m-3">
 					{error?.message || userError?.message || intl.formatMessage({ id: "unknown-error" })}
@@ -100,8 +111,9 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 					{({ setFieldValue }) => (
 						<Form>
 							<Modal.Header closeButton>
-								<Modal.Title>
-									<T id={data?.id ? "object.edit" : "object.add"} tData={{ object: "proxy-host" }} />
+								<Modal.Title className="d-flex align-items-center gap-2">
+									<IconServer size={20} className="text-muted" />
+									<span>{modalTitle}</span>
 								</Modal.Title>
 							</Modal.Header>
 							<Modal.Body className="p-0">
@@ -109,54 +121,58 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 									{errorMsg}
 								</Alert>
 								<div className="card m-0 border-0">
-									<div className="card-header">
+									<div className="card-header p-0">
 										<ul className="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
 											<li className="nav-item" role="presentation">
 												<a
 													href="#tab-details"
-													className="nav-link active"
+													className="nav-link active d-flex align-items-center gap-1"
 													data-bs-toggle="tab"
 													aria-selected="true"
 													role="tab"
 												>
+													<IconServer size={15} />
 													<T id="column.details" />
 												</a>
 											</li>
 											<li className="nav-item" role="presentation">
 												<a
 													href="#tab-locations"
-													className="nav-link"
+													className="nav-link d-flex align-items-center gap-1"
 													data-bs-toggle="tab"
 													aria-selected="false"
 													tabIndex={-1}
 													role="tab"
 												>
+													<IconMapPin size={15} />
 													<T id="column.custom-locations" />
 												</a>
 											</li>
 											<li className="nav-item" role="presentation">
 												<a
 													href="#tab-ssl"
-													className="nav-link"
+													className="nav-link d-flex align-items-center gap-1"
 													data-bs-toggle="tab"
 													aria-selected="false"
 													tabIndex={-1}
 													role="tab"
 												>
+													<IconLock size={15} />
 													<T id="column.ssl" />
 												</a>
 											</li>
 											<li className="nav-item ms-auto" role="presentation">
 												<a
 													href="#tab-advanced"
-													className="nav-link"
-													title="Settings"
+													className="nav-link d-flex align-items-center gap-1"
+													title="Advanced"
 													data-bs-toggle="tab"
 													aria-selected="false"
 													tabIndex={-1}
 													role="tab"
 												>
-													<IconSettings size={20} />
+													<IconCode size={15} />
+													<span className="d-none d-sm-inline">Advanced</span>
 												</a>
 											</li>
 										</ul>
@@ -165,128 +181,145 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 										<div className="tab-content">
 											<div className="tab-pane active show" id="tab-details" role="tabpanel">
 												<DomainNamesField isWildcardPermitted dnsProviderWildcardSupported />
-												{dockerContainers && dockerContainers.length > 0 && (
-													<div className="mb-3">
-														<label className="form-label">Pick Docker Container</label>
-														<select
-															className="form-control"
-															defaultValue=""
-															onChange={(e) => {
-																const val = e.target.value;
-																if (!val) return;
-																const [name, port] = val.split("|");
-																setFieldValue("forwardHost", name);
-																setFieldValue("forwardPort", parseInt(port, 10));
-															}}
-														>
-															<option value="">— select container —</option>
-															{dockerContainers
-																.filter((c) => c.state === "running")
-																.flatMap((c) =>
-																	c.ports && c.ports.length > 0
-																		? c.ports.map((p) => ({
-																				label: `${c.name} (${p.containerPort})`,
-																				value: `${c.name}|${p.containerPort}`,
-																			}))
-																		: [{ label: c.name, value: `${c.name}|80` }],
-																)
-																.map((opt) => (
-																	<option key={opt.value} value={opt.value}>
-																		{opt.label}
-																	</option>
-																))}
-														</select>
+
+												{/* Forward To section */}
+												<div className="mb-3">
+													<div className="d-flex align-items-center gap-2 mb-3">
+														<span className="text-muted" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+															Forward To
+														</span>
+														<hr className="flex-grow-1 my-0" />
 													</div>
-												)}
-												<div className="row">
-													<div className="col-md-3">
-														<Field name="forwardScheme">
-															{({ field, form }: any) => (
-																<div className="mb-3">
-																	<label
-																		className="form-label"
-																		htmlFor="forwardScheme"
-																	>
-																		<T id="host.forward-scheme" />
-																	</label>
-																	<select
-																		id="forwardScheme"
-																		className={`form-control ${form.errors.forwardScheme && form.touched.forwardScheme ? "is-invalid" : ""}`}
-																		required
-																		{...field}
-																	>
-																		<option value="http">http</option>
-																		<option value="https">https</option>
-																	</select>
-																	{form.errors.forwardScheme ? (
-																		<div className="invalid-feedback">
-																			{form.errors.forwardScheme &&
-																			form.touched.forwardScheme
-																				? form.errors.forwardScheme
-																				: null}
-																		</div>
-																	) : null}
-																</div>
-															)}
-														</Field>
-													</div>
-													<div className="col-md-6">
-														<Field name="forwardHost" validate={validateString(1, 255)}>
-															{({ field, form }: any) => (
-																<div className="mb-3">
-																	<label className="form-label" htmlFor="forwardHost">
-																		<T id="proxy-host.forward-host" />
-																	</label>
-																	<input
-																		id="forwardHost"
-																		type="text"
-																		className={`form-control ${form.errors.forwardHost && form.touched.forwardHost ? "is-invalid" : ""}`}
-																		required
-																		placeholder="example.com"
-																		{...field}
-																	/>
-																	{form.errors.forwardHost ? (
-																		<div className="invalid-feedback">
-																			{form.errors.forwardHost &&
-																			form.touched.forwardHost
-																				? form.errors.forwardHost
-																				: null}
-																		</div>
-																	) : null}
-																</div>
-															)}
-														</Field>
-													</div>
-													<div className="col-md-3">
-														<Field name="forwardPort" validate={validateNumber(1, 65535)}>
-															{({ field, form }: any) => (
-																<div className="mb-3">
-																	<label className="form-label" htmlFor="forwardPort">
-																		<T id="host.forward-port" />
-																	</label>
-																	<input
-																		id="forwardPort"
-																		type="number"
-																		min={1}
-																		max={65535}
-																		className={`form-control ${form.errors.forwardPort && form.touched.forwardPort ? "is-invalid" : ""}`}
-																		required
-																		placeholder="eg: 8081"
-																		{...field}
-																	/>
-																	{form.errors.forwardPort ? (
-																		<div className="invalid-feedback">
-																			{form.errors.forwardPort &&
-																			form.touched.forwardPort
-																				? form.errors.forwardPort
-																				: null}
-																		</div>
-																	) : null}
-																</div>
-															)}
-														</Field>
+
+													{/* Docker container selector */}
+													{dockerContainers && dockerContainers.length > 0 && (
+														<div className="mb-3">
+															<label className="form-label d-flex align-items-center gap-1">
+																<IconBrandDocker size={16} className="text-azure" />
+																<span>Pick Docker Container</span>
+															</label>
+															<select
+																className="form-select"
+																defaultValue=""
+																onChange={(e) => {
+																	const val = e.target.value;
+																	if (!val) return;
+																	const [name, port] = val.split("|");
+																	setFieldValue("forwardHost", name);
+																	setFieldValue("forwardPort", parseInt(port, 10));
+																}}
+															>
+																<option value="">— or type manually below —</option>
+																{dockerContainers
+																	.filter((c) => c.state === "running")
+																	.flatMap((c) =>
+																		c.ports && c.ports.length > 0
+																			? c.ports.map((p) => ({
+																					label: `${c.name}  :${p.containerPort}`,
+																					value: `${c.name}|${p.containerPort}`,
+																				}))
+																			: [{ label: c.name, value: `${c.name}|80` }],
+																	)
+																	.map((opt) => (
+																		<option key={opt.value} value={opt.value}>
+																			{opt.label}
+																		</option>
+																	))}
+															</select>
+														</div>
+													)}
+
+													<div className="row">
+														<div className="col-md-3">
+															<Field name="forwardScheme">
+																{({ field, form }: any) => (
+																	<div className="mb-3">
+																		<label
+																			className="form-label"
+																			htmlFor="forwardScheme"
+																		>
+																			<T id="host.forward-scheme" />
+																		</label>
+																		<select
+																			id="forwardScheme"
+																			className={`form-select ${form.errors.forwardScheme && form.touched.forwardScheme ? "is-invalid" : ""}`}
+																			required
+																			{...field}
+																		>
+																			<option value="http">http</option>
+																			<option value="https">https</option>
+																		</select>
+																		{form.errors.forwardScheme ? (
+																			<div className="invalid-feedback">
+																				{form.errors.forwardScheme &&
+																				form.touched.forwardScheme
+																					? form.errors.forwardScheme
+																					: null}
+																			</div>
+																		) : null}
+																	</div>
+																)}
+															</Field>
+														</div>
+														<div className="col-md-6">
+															<Field name="forwardHost" validate={validateString(1, 255)}>
+																{({ field, form }: any) => (
+																	<div className="mb-3">
+																		<label className="form-label" htmlFor="forwardHost">
+																			<T id="proxy-host.forward-host" />
+																		</label>
+																		<input
+																			id="forwardHost"
+																			type="text"
+																			className={`form-control ${form.errors.forwardHost && form.touched.forwardHost ? "is-invalid" : ""}`}
+																			required
+																			placeholder="hostname or container name"
+																			{...field}
+																		/>
+																		{form.errors.forwardHost ? (
+																			<div className="invalid-feedback">
+																				{form.errors.forwardHost &&
+																				form.touched.forwardHost
+																					? form.errors.forwardHost
+																					: null}
+																			</div>
+																		) : null}
+																	</div>
+																)}
+															</Field>
+														</div>
+														<div className="col-md-3">
+															<Field name="forwardPort" validate={validateNumber(1, 65535)}>
+																{({ field, form }: any) => (
+																	<div className="mb-3">
+																		<label className="form-label" htmlFor="forwardPort">
+																			<T id="host.forward-port" />
+																		</label>
+																		<input
+																			id="forwardPort"
+																			type="number"
+																			min={1}
+																			max={65535}
+																			className={`form-control ${form.errors.forwardPort && form.touched.forwardPort ? "is-invalid" : ""}`}
+																			required
+																			placeholder="8080"
+																			{...field}
+																		/>
+																		{form.errors.forwardPort ? (
+																			<div className="invalid-feedback">
+																				{form.errors.forwardPort &&
+																				form.touched.forwardPort
+																					? form.errors.forwardPort
+																					: null}
+																			</div>
+																		) : null}
+																	</div>
+																)}
+															</Field>
+														</div>
 													</div>
 												</div>
+
 												<AccessField />
 												<div className="my-3">
 													<h4 className="py-2">
