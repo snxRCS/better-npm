@@ -52,6 +52,7 @@ RUN git clone --depth=1 --branch v2.1 https://github.com/LuaJIT/LuaJIT.git /tmp/
     && cd /tmp/luajit \
     && make -j"$(nproc)" \
     && make install PREFIX=/usr/local/luajit \
+    && echo "/usr/local/luajit/lib" > /etc/ld.so.conf.d/luajit.conf \
     && ldconfig \
     && rm -rf /tmp/luajit
 
