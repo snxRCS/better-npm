@@ -17,17 +17,17 @@ const logLines = []; // { ts: Date, ip, host, method, path, status, bytes }
 const NGINX_LOG_DIR = process.env.NGINX_LOG_DIR || "/data/logs";
 
 function parseNginxLine(line, host = "unknown") {
-	// Combined log format: ip - - [date] "method path proto" status bytes "referer" "ua"
-	const m = line.match(/^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+) \S+" (\d+) (\d+)/);
+	// NPM log format: [date] - status status - METHOD proto host "path" [Client ip] [Length bytes] ...
+	const m = line.match(/^\[[^\]]+\] - (\d+) \d+ - (\S+) \S+ \S+ "(\S+)" \[Client (\S+)\] \[Length (\d+)\]/);
 	if (!m) return null;
 	return {
 		ts: new Date(),
-		ip: m[1],
+		ip: m[4],
 		host,
-		method: m[3],
-		path: m[4],
-		status: parseInt(m[5], 10),
-		bytes: parseInt(m[6], 10),
+		method: m[2],
+		path: m[3],
+		status: parseInt(m[1], 10),
+		bytes: parseInt(m[5], 10),
 	};
 }
 
