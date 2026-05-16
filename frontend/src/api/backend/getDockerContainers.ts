@@ -15,6 +15,13 @@ export interface DockerContainer {
 	ports: DockerContainerPort[];
 }
 
+interface DockerContainersResponse {
+	available: boolean;
+	containers: DockerContainer[];
+	error?: string;
+}
+
 export async function getDockerContainers(): Promise<DockerContainer[]> {
-	return await api.get({ url: "/docker/containers" });
+	const result: DockerContainersResponse = await api.get({ url: "/docker/containers" });
+	return result.containers || [];
 }
