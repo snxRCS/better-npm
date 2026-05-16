@@ -10,16 +10,33 @@ const router = express.Router({
 	mergeParams: true,
 });
 
+// Support Unix socket (default) or TCP endpoint for docker-socket-proxy
+// DOCKER_HOST=tcp://dockerproxy:2375  or  DOCKER_SOCKET=/var/run/docker.sock
+const DOCKER_HOST = process.env.DOCKER_HOST || null;
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 
-function dockerRequest(path, method = "GET", body = null) {
-	return new Promise((resolve, reject) => {
-		const options = {
-			socketPath: DOCKER_SOCKET,
-			path,
+function buildRequestOptions(apiPath, method) {
+	if (DOCKER_HOST && DOCKER_HOST.startsWith("tcp://")) {
+		const url = new URL(DOCKER_HOST.replace(/^tcp:\/\//, "http://"));
+		return {
+			hostname: url.hostname,
+			port: parseInt(url.port || "2375", 10),
+			path: apiPath,
 			method,
 			headers: { "Content-Type": "application/json" },
 		};
+	}
+	return {
+		socketPath: DOCKER_SOCKET,
+		path: apiPath,
+		method,
+		headers: { "Content-Type": "application/json" },
+	};
+}
+
+function dockerRequest(apiPath, method = "GET", body = null) {
+	return new Promise((resolve, reject) => {
+		const options = buildRequestOptions(apiPath, method);
 
 		const req = http.request(options, (res) => {
 			let data = "";

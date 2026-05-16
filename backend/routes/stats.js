@@ -14,16 +14,16 @@ const router = express.Router({
 const WINDOW_MS = 60_000;
 const logLines = []; // { ts: Date, ip, host, method, path, status, bytes }
 
-const NGINX_LOG = process.env.NGINX_LOG_PATH || "/data/logs/default.log";
+const NGINX_LOG_DIR = process.env.NGINX_LOG_DIR || "/data/logs";
 
-function parseNginxLine(line) {
+function parseNginxLine(line, host = "unknown") {
 	// Combined log format: ip - - [date] "method path proto" status bytes "referer" "ua"
 	const m = line.match(/^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+) \S+" (\d+) (\d+)/);
 	if (!m) return null;
 	return {
 		ts: new Date(),
 		ip: m[1],
-		host: "unknown",
+		host,
 		method: m[3],
 		path: m[4],
 		status: parseInt(m[5], 10),
@@ -34,7 +34,6 @@ function parseNginxLine(line) {
 function getStats() {
 	const now = Date.now();
 	const cutoff = now - WINDOW_MS;
-	// Clean old entries
 	while (logLines.length > 0 && logLines[0].ts.getTime() < cutoff) {
 		logLines.shift();
 	}
@@ -65,47 +64,83 @@ function getStats() {
 	};
 }
 
-// Tail the nginx log file
-let logWatcher = null;
-let logFd = null;
-let logPos = 0;
+// Per-file watcher state
+const watchers = new Map(); // filePath -> { fd, pos }
 
-function startLogWatcher() {
-	if (!fs.existsSync(NGINX_LOG)) return;
+function hostnameFromFile(filename) {
+	// "proxy-host-1_access.log" -> "proxy-host-1"
+	return filename.replace(/_access\.log$/, "");
+}
+
+function watchFile(filePath) {
+	if (watchers.has(filePath)) return;
+	if (!fs.existsSync(filePath)) return;
 
 	try {
-		const stat = fs.statSync(NGINX_LOG);
-		logPos = stat.size; // start at end, don't replay history
-		logFd = fs.openSync(NGINX_LOG, "r");
-
-		logWatcher = setInterval(() => {
-			try {
-				const stat2 = fs.statSync(NGINX_LOG);
-				if (stat2.size < logPos) {
-					// log rotated
-					logPos = 0;
-				}
-				if (stat2.size === logPos) return;
-
-				const buf = Buffer.alloc(stat2.size - logPos);
-				fs.readSync(logFd, buf, 0, buf.length, logPos);
-				logPos = stat2.size;
-
-				const lines = buf.toString("utf8").split("\n").filter(Boolean);
-				for (const line of lines) {
-					const parsed = parseNginxLine(line);
-					if (parsed) logLines.push(parsed);
-				}
-
-				// Keep max 10000 entries to avoid memory bloat
-				if (logLines.length > 10000) logLines.splice(0, logLines.length - 10000);
-			} catch {
-				// ignore read errors
-			}
-		}, 1000);
+		const stat = fs.statSync(filePath);
+		const fd = fs.openSync(filePath, "r");
+		watchers.set(filePath, { fd, pos: stat.size });
 	} catch {
-		// ignore if log not accessible
+		// ignore
 	}
+}
+
+function pollFiles() {
+	for (const [filePath, state] of watchers) {
+		try {
+			const stat2 = fs.statSync(filePath);
+			if (stat2.size < state.pos) {
+				// rotated
+				state.pos = 0;
+			}
+			if (stat2.size === state.pos) continue;
+
+			const buf = Buffer.alloc(stat2.size - state.pos);
+			fs.readSync(state.fd, buf, 0, buf.length, state.pos);
+			state.pos = stat2.size;
+
+			const host = hostnameFromFile(path.basename(filePath));
+			const lines = buf.toString("utf8").split("\n").filter(Boolean);
+			for (const line of lines) {
+				const parsed = parseNginxLine(line, host);
+				if (parsed) logLines.push(parsed);
+			}
+
+			if (logLines.length > 10000) logLines.splice(0, logLines.length - 10000);
+		} catch {
+			// ignore read errors
+		}
+	}
+}
+
+function startLogWatcher() {
+	if (!fs.existsSync(NGINX_LOG_DIR)) return;
+
+	// Watch existing access logs
+	try {
+		const files = fs.readdirSync(NGINX_LOG_DIR);
+		for (const f of files) {
+			if (f.endsWith("_access.log")) {
+				watchFile(path.join(NGINX_LOG_DIR, f));
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	// Watch for new log files appearing
+	try {
+		fs.watch(NGINX_LOG_DIR, (event, filename) => {
+			if (filename && filename.endsWith("_access.log")) {
+				const fp = path.join(NGINX_LOG_DIR, filename);
+				watchFile(fp);
+			}
+		});
+	} catch {
+		// ignore if fs.watch not supported
+	}
+
+	setInterval(pollFiles, 1000);
 }
 
 startLogWatcher();
