@@ -3,6 +3,7 @@ import {
 	IconBrandDocker,
 	IconChevronDown,
 	IconDeviceDesktop,
+	IconHeartbeat,
 	IconHome,
 	IconLock,
 	IconMenu2,
@@ -46,6 +47,11 @@ const menuItems: MenuItem[] = [
 		to: "/docker",
 		icon: IconBrandDocker,
 		label: "docker",
+	},
+	{
+		to: "/uptime",
+		icon: IconHeartbeat,
+		label: "uptime",
 	},
 	{
 		icon: IconDeviceDesktop,

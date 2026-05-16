@@ -25,6 +25,7 @@ const RedirectionHosts = lazy(() => import("src/pages/Nginx/RedirectionHosts"));
 const DeadHosts = lazy(() => import("src/pages/Nginx/DeadHosts"));
 const Streams = lazy(() => import("src/pages/Nginx/Streams"));
 const Docker = lazy(() => import("src/pages/Docker"));
+const Uptime = lazy(() => import("src/pages/Uptime"));
 
 function Router() {
 	const health = useHealth();
@@ -70,6 +71,7 @@ function Router() {
 								<Route path="/nginx/404" element={<DeadHosts />} />
 								<Route path="/nginx/stream" element={<Streams />} />
 								<Route path="/docker" element={<Docker />} />
+								<Route path="/uptime" element={<Uptime />} />
 								<Route path="/" element={<Dashboard />} />
 							</Routes>
 						</Suspense>

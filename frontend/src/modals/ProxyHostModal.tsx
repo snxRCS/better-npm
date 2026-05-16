@@ -16,7 +16,7 @@ import {
 	SSLCertificateField,
 	SSLOptionsFields,
 } from "src/components";
-import { useProxyHost, useSetProxyHost, useUser } from "src/hooks";
+import { useProxyHost, useSetProxyHost, useUser, useDockerContainers } from "src/hooks";
 import { intl, T } from "src/locale";
 import { MANAGE, PROXY_HOSTS } from "src/modules/Permissions";
 import { validateNumber, validateString } from "src/modules/Validations";
@@ -33,6 +33,7 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 	const { data: currentUser, isLoading: userIsLoading, error: userError } = useUser("me");
 	const { data, isLoading, error } = useProxyHost(id);
 	const { mutate: setProxyHost } = useSetProxyHost();
+	const { data: dockerContainers } = useDockerContainers();
 	const [errorMsg, setErrorMsg] = useState<ReactNode | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -96,7 +97,7 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 					}
 					onSubmit={onSubmit}
 				>
-					{() => (
+					{({ setFieldValue }) => (
 						<Form>
 							<Modal.Header closeButton>
 								<Modal.Title>
@@ -164,6 +165,39 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 										<div className="tab-content">
 											<div className="tab-pane active show" id="tab-details" role="tabpanel">
 												<DomainNamesField isWildcardPermitted dnsProviderWildcardSupported />
+												{dockerContainers && dockerContainers.length > 0 && (
+													<div className="mb-3">
+														<label className="form-label">Pick Docker Container</label>
+														<select
+															className="form-control"
+															defaultValue=""
+															onChange={(e) => {
+																const val = e.target.value;
+																if (!val) return;
+																const [name, port] = val.split("|");
+																setFieldValue("forwardHost", name);
+																setFieldValue("forwardPort", parseInt(port, 10));
+															}}
+														>
+															<option value="">— select container —</option>
+															{dockerContainers
+																.filter((c) => c.state === "running")
+																.flatMap((c) =>
+																	c.ports && c.ports.length > 0
+																		? c.ports.map((p) => ({
+																				label: `${c.name} (${p.containerPort})`,
+																				value: `${c.name}|${p.containerPort}`,
+																			}))
+																		: [{ label: c.name, value: `${c.name}|80` }],
+																)
+																.map((opt) => (
+																	<option key={opt.value} value={opt.value}>
+																		{opt.label}
+																	</option>
+																))}
+														</select>
+													</div>
+												)}
 												<div className="row">
 													<div className="col-md-3">
 														<Field name="forwardScheme">

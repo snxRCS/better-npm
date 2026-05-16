@@ -63,3 +63,5 @@ export * from "./uploadCertificate";
 export * from "./validateCertificate";
 export * from "./twoFactor";
 export * from "./ssoCheck";
+export * from "./getDockerContainers";
+export * from "./getUptimeStatus";
