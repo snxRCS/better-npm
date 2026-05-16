@@ -4,7 +4,6 @@ import {
 	IconLock,
 	IconMapPin,
 	IconServer,
-	IconSettings,
 } from "@tabler/icons-react";
 import cn from "classnames";
 import EasyModal, { type InnerModalProps } from "ez-modal-react";
