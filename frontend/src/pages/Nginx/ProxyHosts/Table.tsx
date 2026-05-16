@@ -10,6 +10,7 @@ import {
 	GravatarFormatter,
 	HasPermission,
 	TrueFalseFormatter,
+	UptimeBadge,
 } from "src/components";
 import { TableLayout } from "src/components/Table/TableLayout";
 import { intl, T } from "src/locale";
@@ -68,11 +69,17 @@ export default function Table({ data, isFetching, onEdit, onDelete, onDisableTog
 					return <AccessListFormatter access={info.getValue()} />;
 				},
 			}),
-			columnHelper.accessor((row: any) => row.enabled, {
+			columnHelper.accessor((row: any) => row, {
 				id: "enabled",
 				header: intl.formatMessage({ id: "column.status" }),
 				cell: (info: any) => {
-					return <TrueFalseFormatter value={info.getValue()} trueLabel="online" falseLabel="offline" />;
+					const row = info.getValue();
+					return (
+						<span className="d-flex align-items-center gap-2">
+							<TrueFalseFormatter value={row.enabled} trueLabel="online" falseLabel="offline" />
+							{row.enabled && <UptimeBadge proxyHostId={row.id} />}
+						</span>
+					);
 				},
 			}),
 			columnHelper.display({

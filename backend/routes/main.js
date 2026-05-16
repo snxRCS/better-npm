@@ -18,6 +18,7 @@ import ldapRoutes from "./ldap.js";
 import versionRoutes from "./version.js";
 import statsRoutes from "./stats.js";
 import dockerRoutes from "./docker.js";
+import uptimeRoutes from "./uptime.js";
 
 const router = express.Router({
 	caseSensitive: true,
@@ -60,6 +61,7 @@ router.use("/nginx/access-lists", accessListsRoutes);
 router.use("/nginx/certificates", certificatesHostsRoutes);
 router.use("/stats", statsRoutes);
 router.use("/docker", dockerRoutes);
+router.use("/uptime", uptimeRoutes);
 
 /**
  * API 404 for all other routes
