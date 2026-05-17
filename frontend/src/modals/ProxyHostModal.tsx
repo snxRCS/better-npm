@@ -211,14 +211,15 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 																<option value="">— or type manually below —</option>
 																{dockerContainers
 																	.filter((c) => c.state === "running")
-																	.flatMap((c) =>
-																		c.ports && c.ports.length > 0
-																			? c.ports.map((p) => ({
-																					label: `${c.name}  :${p.containerPort}`,
-																					value: `${c.name}|${p.containerPort}`,
-																				}))
-																			: [{ label: c.name, value: `${c.name}|80` }],
-																	)
+																	.flatMap((c) => {
+																		if (c.ports && c.ports.length > 0) {
+																			const seen = new Set<number>();
+																			return c.ports
+																				.filter((p) => { if (seen.has(p.containerPort)) return false; seen.add(p.containerPort); return true; })
+																				.map((p) => ({ label: `${c.name}  :${p.containerPort}`, value: `${c.name}|${p.containerPort}` }));
+																		}
+																		return [{ label: c.name, value: `${c.name}|80` }];
+																	})
 																	.map((opt) => (
 																		<option key={opt.value} value={opt.value}>
 																			{opt.label}
@@ -424,7 +425,6 @@ const ProxyHostModal = EasyModal.create(({ id, visible, remove }: Props) => {
 										type="submit"
 										actionType="primary"
 										className="ms-auto bg-lime"
-										data-bs-dismiss="modal"
 										isLoading={isSubmitting}
 										disabled={isSubmitting}
 									>
