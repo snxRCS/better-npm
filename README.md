@@ -4,22 +4,32 @@
 [![Docker Image](https://img.shields.io/badge/ghcr.io-better--npm-blue)](https://github.com/snxRCS/better-npm/pkgs/container/better-npm)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-informational)](https://snxrcs.github.io/better-npm/)
 
-A community-driven fork of [Nginx Proxy Manager](https://github.com/NginxProxyManager/nginx-proxy-manager) with **LDAP/AD authentication**, **SSO**, **Two-Factor Auth**, **Multi-LDAP failover**, **i18n**, and a modern sidebar UI — fully open source (MIT).
+A community-driven fork of [Nginx Proxy Manager](https://github.com/NginxProxyManager/nginx-proxy-manager) with **LDAP/AD authentication**, **SSO**, **Two-Factor Auth**, **Multi-LDAP failover**, **Uptime Monitor**, **Live Traffic**, **Docker Container Selector**, **i18n**, and a modern sidebar UI — fully open source (MIT).
 
 ---
 
 ## Features
 
+### Authentication & Access
 - **LDAP / Active Directory** — Three auth modes (Internal, Internal+LDAP, LDAP-Only) with OpenLDAP, AD, and LLDAP support
 - **SSO / Trusted Headers** — Auto-login via Authelia, Authentik, Keycloak (Remote-Email/User/Name/Groups)
 - **Two-Factor Authentication** — TOTP-based 2FA with backup codes
 - **Multi-LDAP Failover** — Multiple LDAP servers with priority-based failover
 - **LDAP Avatars** — Displays `thumbnailPhoto` / `jpegPhoto` from LDAP automatically
-- **Modern Sidebar UI** — Redesigned vertical sidebar with responsive mobile support
-- **Internationalization** — English and German, extensible to more languages
-- **LDAP User Sync** — Bulk-sync all LDAP users with one click
 - **Group → Admin Role Mapping** — Admin role based on LDAP group membership
 - **Auto-Create Users** — Local accounts created on first LDAP/SSO login
+- **LDAP User Sync** — Bulk-sync all LDAP users with one click
+
+### Monitoring & Observability
+- **Uptime Monitor** — Background health checks every 60 seconds with live status badges on every proxy host; dedicated Uptime page with response times and uptime % over last 100 checks
+- **Live Traffic** — Real-time view of incoming requests from nginx access logs; shows host, method, path, status code, and response time
+
+### UI & Productivity
+- **Docker Container Selector** — When adding a proxy host, pick a running Docker container from a dropdown to auto-fill the forward hostname and port
+- **Modern Sidebar UI** — Redesigned vertical sidebar with responsive mobile support and tabbed proxy host modal
+- **Internationalization** — English and German, extensible to more languages
+
+### Infrastructure
 - **Docker Multi-Arch** — `amd64` and `arm64` via GitHub Container Registry
 - **Automated CI/CD** — Auto-versioning, Docker builds, GitHub Releases, Docs deployment
 
@@ -125,6 +135,49 @@ All standard NPM environment variables are supported. LDAP/SSO configuration is 
 
 ---
 
+## Docker Compose with Docker Container Selector
+
+To enable the Docker Container Selector (auto-fill from running containers), add a socket proxy:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/snxrcs/better-npm:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      TZ: "Europe/Berlin"
+      DOCKER_HOST: "tcp://dockerproxy:2375"
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - default
+      - proxy
+
+  dockerproxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+
+networks:
+  proxy:
+    external: true
+```
+
+The `dockerproxy` container exposes a read-only Docker API — no direct socket mount needed.
+
+---
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
@@ -135,6 +188,9 @@ All standard NPM environment variables are supported. LDAP/SSO configuration is 
 | `GET` | `/api/ldap/status` | LDAP connection status |
 | `POST` | `/api/ldap/sync` | Sync all LDAP users |
 | `GET` | `/api/ldap/auth` | Proxy auth endpoint (HTTP Basic → LDAP) |
+| `GET` | `/api/uptime` | Uptime check results for all proxy hosts |
+| `GET` | `/api/stats/live` | Live traffic stream (SSE) |
+| `GET` | `/api/docker/containers` | List running Docker containers (requires socket proxy) |
 
 ---
 
@@ -156,4 +212,4 @@ Fork of [Nginx Proxy Manager](https://github.com/NginxProxyManager/nginx-proxy-m
 
 MIT — Same as the original project.
 
-<!-- Updated 2026-05-13 -->
+<!-- Updated 2026-05-17 -->

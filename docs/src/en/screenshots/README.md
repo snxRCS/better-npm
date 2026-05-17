@@ -1,5 +1,31 @@
 # Screenshots
 
+## New in v3.0.x
+
+### Uptime Monitor
+Proxy host list with live status badges (green/red dots) and the dedicated uptime overview page.
+
+_(screenshots coming soon)_
+
+### Live Traffic
+Real-time request stream from nginx access logs.
+
+_(screenshots coming soon)_
+
+### Docker Container Selector
+Dropdown in the proxy host modal to pick a running container and auto-fill host and port.
+
+_(screenshots coming soon)_
+
+### Improved Proxy Host Modal
+Tabbed interface with icons (Details / SSL / Advanced) and the domain name shown in the modal title.
+
+_(screenshots coming soon)_
+
+---
+
+## Classic Views
+
 ### Light Mode
 
 <div>

@@ -10,6 +10,13 @@
   - [Two-Factor Auth](en/configuration/2fa)
   - [Environment Variables](en/configuration/env-vars)
 
+- **Monitoring**
+  - [Uptime Monitor](en/guide/uptime-monitor)
+  - [Live Traffic](en/guide/live-traffic)
+
+- **Docker Integration**
+  - [Container Selector](en/guide/docker-selector)
+
 - **Advanced**
   - [Advanced Config](en/advanced-config/)
   - [Third-Party](en/third-party/)
